@@ -4,16 +4,18 @@ use trie::Trie;
 struct Board {
     letters: [[char; 3]; 4],
 }
-impl Board {
-    fn new(letters: &str) -> Self {
-        if letters.len() < 12 {
-            panic!("Invalid board");
-        }
+
+impl<T> From<T> for Board
+where
+    T: IntoIterator<Item = char>,
+{
+    fn from(input: T) -> Self {
         let mut edges = [[' '; 3]; 4];
         let mut i = 0;
         let mut j = 0;
+        let mut count = 0;
 
-        for c in letters.chars() {
+        for c in input {
             if c == ' ' {
                 continue;
             }
@@ -23,17 +25,19 @@ impl Board {
                 j = 0;
                 i += 1;
             }
+            count += 1;
         }
-        if i != 4 && j != 0 {
+
+        if count < 12 || i != 4 || j != 0 {
             panic!("Invalid board");
-        } else {
-            Board { letters: edges }
         }
+
+        Board { letters: edges }
     }
 }
 
 fn main() {
-    let b = Board::new("abcdefghijkl");
+    let b = Board::from("abcdefghijkl".chars());
     println!("{:?}", b.letters);
     let t = Trie::new(&[String::from("test")]);
     println!("{:?}", t);
@@ -45,15 +49,17 @@ mod test {
     use super::*;
     #[test]
     fn construct_board() {
-        Board::new("abcdefghi jkl ");
+        let _ = Board::from("abcdefghi jkl ".chars());
+        let v = vec!['a'; 12];
+        let _ = Board::from(v);
     }
 
     #[test]
     fn board_construction_failure() {
-        assert!(std::panic::catch_unwind(|| Board::new("abcdefg")).is_err());
-        assert!(std::panic::catch_unwind(|| Board::new("abcdefghi")).is_err());
-        assert!(std::panic::catch_unwind(|| Board::new("abcdefghij")).is_err());
-        assert!(std::panic::catch_unwind(|| Board::new("abcdefghijk")).is_err());
-        assert!(std::panic::catch_unwind(|| Board::new("abcdefghijklm")).is_err());
+        assert!(std::panic::catch_unwind(|| Board::from("abcdefg".chars())).is_err());
+        assert!(std::panic::catch_unwind(|| Board::from("abcdefghi".chars())).is_err());
+        assert!(std::panic::catch_unwind(|| Board::from("abcdefghij".chars())).is_err());
+        assert!(std::panic::catch_unwind(|| Board::from("abcdefghijk".chars())).is_err());
+        assert!(std::panic::catch_unwind(|| Board::from("abcdefghijklm".chars())).is_err());
     }
 }
