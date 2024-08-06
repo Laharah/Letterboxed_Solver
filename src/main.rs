@@ -7,6 +7,46 @@ struct Board {
     letters: [[char; 3]; 4],
 }
 
+impl Board {
+    fn show_board(&self) {
+        print!("  ");
+        for c in self.letters[0].iter() {
+            print!("  {} ", c);
+        }
+        print!(" ");
+        let gap_len = 11;
+        let gap = String::from(" ").repeat(gap_len);
+        print!("\n  ┌");
+        for i in 0usize..3 {
+            if i != 2 {
+                print!("─┬──")
+            } else {
+                println!("─┬─┐");
+            }
+        }
+        // println!("  │{}│  ", gap);
+        for i in 0usize..3 {
+            println!(" {}├{}┤{} ", self.letters[3][i], gap, self.letters[1][i]);
+            if i != 2 {
+                println!("  │{}│  ", gap);
+            }
+        }
+        print!("  └");
+        for i in 0usize..3 {
+            if i != 2 {
+                print!("─┴──")
+            } else {
+                println!("─┴─┘");
+            }
+        }
+        print!("   ");
+        for c in self.letters[2].iter() {
+            print!(" {}  ", c);
+        }
+        print!("\n\n");
+    }
+}
+
 impl<T> From<T> for Board
 where
     T: IntoIterator<Item = char>,
@@ -55,8 +95,9 @@ fn main() {
 
     let t = Trie::new(filtered);
     // println!("{:?}", t);
-    // let b = Board::from("abcdefghijkl".chars());
     // println!("{:?}", b.letters);
+    let b = Board::from("abcdefghijkl".chars());
+    b.show_board();
     assert!(t.contains("test"));
     assert!(t.contains("points"));
     assert!(t.contains("coding"));
