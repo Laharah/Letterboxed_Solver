@@ -26,16 +26,26 @@ const WORD_END: usize = 1;
 #[derive(Debug)]
 pub struct Trie {
     nodes: Vec<Node>,
+    items: usize,
 }
 impl Trie {
-    pub fn new(word_list: &[String]) -> Self {
+    pub fn new<T, I>(word_list: T) -> Self
+    where
+        T: IntoIterator<Item = I>,
+        I: AsRef<str>,
+    {
         let mut t = Trie {
             nodes: vec![Node::new(Data::Root), Node::new(Data::End)],
+            items: 0,
         };
         for word in word_list {
-            t.insert(word);
+            t.insert(word.as_ref());
         }
         t
+    }
+
+    pub fn len(&self) -> usize {
+        self.items
     }
 
     pub fn contains(&self, word: &str) -> bool {
@@ -56,7 +66,6 @@ impl Trie {
                 return false;
             }
         }
-        println!("{}", cursor);
         if self.nodes[cursor].children.contains(&WORD_END) {
             return true;
         }
@@ -94,14 +103,14 @@ mod test {
     use super::*;
     #[test]
     fn trie_store() {
-        let t = Trie::new(&[String::from("test")]);
+        let t = Trie::new(["test"]);
         println!("{:?}", t.nodes);
         assert!(t.contains("test"));
     }
 
     #[test]
     fn trie_contains() {
-        let mut t = Trie::new(&[String::from("test")]);
+        let mut t = Trie::new(["test"]);
         t.insert("testing");
         t.insert("quick");
         println!("{:?}", t.nodes);
@@ -112,7 +121,7 @@ mod test {
 
     #[test]
     fn trie_does_not_contain() {
-        let t = Trie::new(&[String::from("test")]);
+        let t = Trie::new(["test"]);
         println!("{:?}", t.nodes);
         assert!(!t.contains("tested"));
         assert!(!t.contains("tesg"));

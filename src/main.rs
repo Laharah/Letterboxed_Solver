@@ -1,4 +1,6 @@
 mod trie;
+use std::io::BufRead;
+
 use trie::Trie;
 
 struct Board {
@@ -28,7 +30,7 @@ where
             count += 1;
         }
 
-        if count < 12 || i != 4 || j != 0 {
+        if count != 12 {
             panic!("Invalid board");
         }
 
@@ -37,11 +39,27 @@ where
 }
 
 fn main() {
-    let b = Board::from("abcdefghijkl".chars());
-    println!("{:?}", b.letters);
-    let t = Trie::new(&[String::from("test")]);
-    println!("{:?}", t);
+    let f = std::fs::File::open("/usr/share/dict/american-english").unwrap();
+    let f = std::io::BufReader::new(f);
+    let filtered = f
+        .lines()
+        .map(|l| l.unwrap())
+        .filter(|l| {
+            // let l = l.unwrap();
+            if l.ends_with("'s") {
+                return false;
+            }
+            true
+        })
+        .map(|l| l.trim().to_lowercase());
+
+    let t = Trie::new(filtered);
+    // println!("{:?}", t);
+    // let b = Board::from("abcdefghijkl".chars());
+    // println!("{:?}", b.letters);
     assert!(t.contains("test"));
+    assert!(t.contains("points"));
+    assert!(t.contains("coding"));
 }
 
 #[cfg(test)]
