@@ -94,7 +94,10 @@ impl Trie {
                 cursor = idx;
             }
         }
-        self.nodes[cursor].children.push(WORD_END);
+        if !self.nodes[cursor].children.contains(&WORD_END) {
+            self.nodes[cursor].children.push(WORD_END);
+            self.items += 1;
+        }
     }
 }
 
@@ -120,11 +123,26 @@ mod test {
     }
 
     #[test]
+    fn double_insert() {
+        let mut t = Trie::new(["test"]);
+        t.insert("test");
+        println!("{:#?}", t.nodes);
+        assert_eq!(t.len(), 1);
+    }
+
+    #[test]
     fn trie_does_not_contain() {
         let t = Trie::new(["test"]);
         println!("{:?}", t.nodes);
         assert!(!t.contains("tested"));
         assert!(!t.contains("tesg"));
         assert!(!t.contains("nothere"));
+    }
+    #[test]
+    fn length() {
+        let mut t = Trie::new(["test"]);
+        t.insert("testing");
+        t.insert("quick");
+        assert_eq!(t.len(), 3);
     }
 }
