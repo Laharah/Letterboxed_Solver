@@ -8,7 +8,9 @@ enum Data {
 #[derive(Debug)]
 struct Node {
     data: Data,
+    descendents_count: usize,
     children: Vec<usize>,
+    parent: usize,
 }
 
 impl Node {
@@ -16,6 +18,8 @@ impl Node {
         Node {
             data,
             children: vec![],
+            descendents_count: 0,
+            parent: 0,
         }
     }
 }
@@ -73,13 +77,15 @@ impl Trie {
         false
     }
 
-    fn insert(&mut self, word: &str) {
+    pub fn insert(&mut self, word: &str) {
+        let mut path = vec![ROOT];
         let mut cursor = ROOT;
         for c in word.chars() {
             let mut found = false;
             for idx in &self.nodes[cursor].children {
                 if self.nodes[*idx].data == Data::Letter(c) {
                     cursor = *idx;
+                    path.push(cursor);
                     found = true;
                     break;
                 }
@@ -88,16 +94,61 @@ impl Trie {
                 self.nodes.push(Node {
                     data: Data::Letter(c),
                     children: Vec::new(),
+                    descendents_count: 0,
+                    parent: cursor,
                 });
                 let idx = self.nodes.len() - 1;
                 self.nodes[cursor].children.push(idx);
                 cursor = idx;
+                path.push(cursor);
             }
         }
         if !self.nodes[cursor].children.contains(&WORD_END) {
             self.nodes[cursor].children.push(WORD_END);
             self.items += 1;
         }
+        for p in path {
+            self.nodes[p].descendents_count += 1;
+        }
+    }
+
+    fn get_node_from_prefix(&self, prefix: &str) -> Option<usize> {
+        let mut cursor = ROOT;
+        for c in prefix.chars() {
+            let mut found = false;
+            for &idx in &self.nodes[cursor].children {
+                match self.nodes[idx].data {
+                    Data::Letter(l) if l == c => {
+                        cursor = idx;
+                        found = true;
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            if !found {
+                return None;
+            }
+        }
+        Some(cursor)
+    }
+}
+
+struct TrieIterator<'a> {
+    trie: &'a Trie,
+    stack: Vec<(usize, usize)>,
+}
+
+impl Iterator for TrieIterator<'_> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.stack.is_empty() {
+            return None;
+        }
+        let (node_cursor, child_cursor) = self.stack.pop().unwrap();
+
+        Some("hello".into())
     }
 }
 
@@ -144,5 +195,23 @@ mod test {
         t.insert("testing");
         t.insert("quick");
         assert_eq!(t.len(), 3);
+    }
+    #[test]
+    fn descendents_count() {
+        let mut t = Trie::new(["test"]);
+        t.insert("testing");
+        t.insert("quick");
+
+        println!("{:?}", t.nodes);
+
+        let get_descendents_from_prefix = |prefix: &str| {
+            let node = t.get_node_from_prefix(prefix).unwrap();
+            t.nodes[node].descendents_count
+        };
+
+        assert_eq!(t.nodes[ROOT].descendents_count, 3);
+        assert_eq!(get_descendents_from_prefix("tes"), 2);
+        assert_eq!(get_descendents_from_prefix("testi"), 1);
+        assert_eq!(get_descendents_from_prefix("qui"), 1);
     }
 }
