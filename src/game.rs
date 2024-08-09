@@ -139,7 +139,7 @@ pub fn solve(board: &Board, trie: &Trie) -> Vec<String> {
         path_len: 0,
         current: Location::Root,
         used_chars: [false; 12],
-        board: &board,
+        board,
     };
     //TODO: use a heap and construct states using a length-first-iterator from trie.
     vec![]

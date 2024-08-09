@@ -1,3 +1,5 @@
+use std::cmp::Reverse;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Data {
     Letter(char),
@@ -132,23 +134,73 @@ impl Trie {
         }
         Some(cursor)
     }
+
+    fn iter(&self) -> TrieIterator {
+        let mut root_children = self.nodes[ROOT].children.clone();
+        let descendent_sort = |&idx: &usize| Reverse(self.nodes[idx].descendents_count);
+        root_children.sort_by_key(descendent_sort);
+        let first_node_idx = root_children.pop().unwrap();
+        let stack_base = (ROOT, root_children);
+        let mut first_children = self.nodes[first_node_idx].children.clone();
+        first_children.sort_by_key(descendent_sort);
+        let stack_head = (first_node_idx, first_children);
+        TrieIterator {
+            trie: self,
+            stack: vec![stack_base, stack_head],
+        }
+    }
 }
 
+#[derive(Debug)]
 struct TrieIterator<'a> {
     trie: &'a Trie,
-    stack: Vec<(usize, usize)>,
+    // node_idx, vec of children sorted by descendents
+    stack: Vec<(usize, Vec<usize>)>,
 }
 
 impl Iterator for TrieIterator<'_> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.stack.is_empty() {
-            return None;
-        }
-        let (node_cursor, child_cursor) = self.stack.pop().unwrap();
+        loop {
+            println!("{:#?}\n---", self.stack);
+            let (node_idx, mut children) = match self.stack.pop() {
+                None => return None,
+                Some(x) => x,
+            };
+            let current_child_idx = children.pop().unwrap();
 
-        Some("hello".into())
+            self.stack.push((node_idx, children));
+
+            if current_child_idx == WORD_END {
+                let mut word = String::new();
+                let iter = self.stack.iter();
+                for (idx, _) in iter {
+                    let n = &self.trie.nodes[*idx];
+                    if let Data::Letter(c) = n.data {
+                        word.push(c);
+                    }
+                }
+
+                let mut to_del = 0;
+                for (_, cursor_descendents) in self.stack[1..].iter().rev() {
+                    if !cursor_descendents.is_empty() {
+                        break;
+                    }
+                    to_del += 1;
+                }
+                self.stack.resize(self.stack.len() - to_del, (0, vec![]));
+                println!("Word \"{}\"found!", word);
+                println!("{} stack items removed.", to_del);
+                return Some(word);
+            }
+
+            let descendent_sort = |&idx: &usize| self.trie.nodes[idx].descendents_count;
+
+            let mut next_children = self.trie.nodes[current_child_idx].children.clone();
+            next_children.sort_by_key(descendent_sort);
+            self.stack.push((current_child_idx, next_children));
+        }
     }
 }
 
@@ -213,5 +265,21 @@ mod test {
         assert_eq!(get_descendents_from_prefix("tes"), 2);
         assert_eq!(get_descendents_from_prefix("testi"), 1);
         assert_eq!(get_descendents_from_prefix("qui"), 1);
+    }
+    #[test]
+    fn greatest_first_iterator() {
+        let mut t = Trie::new(["tests"]);
+        t.insert("testr"); // Sort should be stable, **NOT A GUARANTEE**
+        t.insert("testing");
+        t.insert("quiet");
+        t.insert("quietly");
+        t.insert("very_quietly");
+        let mut iter = t.iter();
+        assert_eq!(iter.next().unwrap(), "very_quietly");
+        assert_eq!(iter.next().unwrap(), "quietly");
+        assert_eq!(iter.next().unwrap(), "quiet");
+        assert_eq!(iter.next().unwrap(), "testing");
+        assert_eq!(iter.next().unwrap(), "testr");
+        assert_eq!(iter.next().unwrap(), "tests");
     }
 }
