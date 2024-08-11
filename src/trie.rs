@@ -149,12 +149,36 @@ impl Trie {
             stack: vec![stack_base, stack_head],
         }
     }
+
+    fn iter_from(&self, prefix: &str) -> TrieIterator {
+        let mut node_idx = match self.get_node_from_prefix(prefix) {
+            Some(x) => x,
+            None => {
+                return TrieIterator {
+                    trie: self,
+                    stack: vec![],
+                }
+            }
+        };
+        let descendent_sort = |&idx: &usize| self.nodes[idx].descendents_count;
+        let mut head_children = self.nodes[node_idx].children.clone();
+        head_children.sort_by_key(descendent_sort);
+        let mut stack = vec![(node_idx, head_children)];
+        node_idx = self.nodes[node_idx].parent;
+        while node_idx != ROOT {
+            stack.push((node_idx, vec![]));
+            node_idx = self.nodes[node_idx].parent;
+        }
+        stack.push((ROOT, vec![]));
+        stack.reverse();
+        TrieIterator { trie: self, stack }
+    }
 }
 
 #[derive(Debug)]
 struct TrieIterator<'a> {
     trie: &'a Trie,
-    // node_idx, vec of children sorted by descendents
+    // node_idx, vec of shildren
     stack: Vec<(usize, Vec<usize>)>,
 }
 
@@ -163,7 +187,22 @@ impl Iterator for TrieIterator<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            println!("{:#?}\n---", self.stack);
+            // // debug show stack
+            // for (idx, children) in self.stack.iter() {
+            //     let c = self.trie.nodes[*idx].data;
+            //     let kids = children
+            //         .iter()
+            //         .map(|&idx| match self.trie.nodes[idx].data {
+            //             Data::Letter(c) => (idx, c),
+            //             Data::End => (idx, '_'),
+            //             Data::Root => (idx, 'R'),
+            //         })
+            //         .collect::<Vec<_>>();
+            //     println!("{:?}: {:?}", c, kids);
+            // }
+            // println!("stack:");
+            // ---
+
             let (node_idx, mut children) = match self.stack.pop() {
                 None => return None,
                 Some(x) => x,
@@ -183,21 +222,18 @@ impl Iterator for TrieIterator<'_> {
                 }
 
                 let mut to_del = 0;
-                for (_, cursor_descendents) in self.stack[1..].iter().rev() {
+                for (_, cursor_descendents) in self.stack.iter().rev() {
                     if !cursor_descendents.is_empty() {
                         break;
                     }
                     to_del += 1;
                 }
                 self.stack.resize(self.stack.len() - to_del, (0, vec![]));
-                println!("Word \"{}\"found!", word);
-                println!("{} stack items removed.", to_del);
                 return Some(word);
             }
 
-            let descendent_sort = |&idx: &usize| self.trie.nodes[idx].descendents_count;
-
             let mut next_children = self.trie.nodes[current_child_idx].children.clone();
+            let descendent_sort = |&idx: &usize| self.trie.nodes[idx].descendents_count;
             next_children.sort_by_key(descendent_sort);
             self.stack.push((current_child_idx, next_children));
         }
@@ -281,5 +317,32 @@ mod test {
         assert_eq!(iter.next().unwrap(), "testing");
         assert_eq!(iter.next().unwrap(), "testr");
         assert_eq!(iter.next().unwrap(), "tests");
+    }
+
+    #[test]
+    fn iter_from_test() {
+        let mut t = Trie::new(["apple", "app", "apricot", "banana", "band", "bandana"]);
+        let mut iter = t.iter_from("app");
+
+        assert_eq!(iter.next().unwrap(), "apple");
+        assert_eq!(iter.next().unwrap(), "app");
+        assert!(iter.next().is_none());
+
+        let mut iter = t.iter_from("ban");
+
+        assert_eq!(iter.next().unwrap(), "bandana");
+        assert_eq!(iter.next().unwrap(), "band");
+        assert_eq!(iter.next().unwrap(), "banana");
+        assert!(iter.next().is_none());
+
+        let mut iter = t.iter_from("band");
+
+        assert_eq!(iter.next().unwrap(), "bandana");
+        assert_eq!(iter.next().unwrap(), "band");
+        assert!(iter.next().is_none());
+
+        let mut iter = t.iter_from("z");
+
+        assert!(iter.next().is_none());
     }
 }
