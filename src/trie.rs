@@ -1,3 +1,4 @@
+use crate::game::Board;
 use std::cmp::Reverse;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +47,36 @@ impl Trie {
         };
         for word in word_list {
             t.insert(word.as_ref());
+        }
+        t
+    }
+
+    pub fn new_with_board<T, I>(word_list: T, board: &Board) -> Self
+    where
+        T: IntoIterator<Item = I>,
+        I: AsRef<str>,
+    {
+        let mut t = Trie {
+            nodes: vec![Node::new(Data::Root), Node::new(Data::End)],
+            items: 0,
+        };
+        let legal_word = |word: &I| -> bool {
+            let prev_char = None;
+            for c in word.as_ref().chars() {
+                if !board.letters.contains(&c) {
+                    return false;
+                }
+                match prev_char {
+                    Some(p) if board.get_idx(p) / 3 == board.get_idx(c) / 3 => return false,
+                    _ => (),
+                };
+            }
+            true
+        };
+        for w in word_list {
+            if legal_word(&w) {
+                t.insert(w.as_ref())
+            }
         }
         t
     }
@@ -135,7 +166,7 @@ impl Trie {
         Some(cursor)
     }
 
-    fn iter(&self) -> TrieIterator {
+    pub fn iter(&self) -> TrieIterator {
         let mut root_children = self.nodes[ROOT].children.clone();
         let descendent_sort = |&idx: &usize| Reverse(self.nodes[idx].descendents_count);
         root_children.sort_by_key(descendent_sort);
@@ -150,7 +181,7 @@ impl Trie {
         }
     }
 
-    fn iter_from(&self, prefix: &str) -> TrieIterator {
+    pub fn iter_from(&self, prefix: &str) -> TrieIterator {
         let mut node_idx = match self.get_node_from_prefix(prefix) {
             Some(x) => x,
             None => {
@@ -176,7 +207,7 @@ impl Trie {
 }
 
 #[derive(Debug)]
-struct TrieIterator<'a> {
+pub struct TrieIterator<'a> {
     trie: &'a Trie,
     // node_idx, vec of shildren
     stack: Vec<(usize, Vec<usize>)>,
@@ -344,5 +375,16 @@ mod test {
         let mut iter = t.iter_from("z");
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_new_with_board() {
+        let board = Board::from("abc def ghi jkl".chars());
+        let words = vec!["adg", "bkfg", "agh"];
+        let trie = Trie::new_with_board(words, &board);
+
+        assert!(trie.contains("adg"));
+        assert!(trie.contains("bkfg"));
+        assert!(!trie.contains("ghi"));
     }
 }

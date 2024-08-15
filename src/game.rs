@@ -2,6 +2,7 @@ use crate::trie::Trie;
 use core::cmp::Reverse;
 use indexmap::IndexMap;
 use std::collections::BinaryHeap;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
@@ -52,6 +53,14 @@ impl Board {
         }
         print!("\n\n");
     }
+    pub fn get_idx(&self, c: char) -> usize {
+        self.letters
+            .iter()
+            .enumerate()
+            .find(|x| *x.1 == c)
+            .unwrap()
+            .0
+    }
 }
 
 impl<T> From<T> for Board
@@ -81,68 +90,102 @@ where
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 enum Location {
     Root,
-    C(usize),
+    Idx(usize),
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
-struct State<'s> {
-    pub path: [&'s str; 5],
-    path_len: u8,
-    current: Location,
+#[derive(Hash, Debug, Eq, PartialEq)]
+struct State<'b> {
+    board: &'b Board,
+    word: String,
+    path_len: usize,
     used_chars: [bool; 12],
-    board: &'s Board,
+    location: Location,
 }
 
-impl<'a> PartialOrd for State<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl<'a> Ord for State<'a> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let a = self.used_chars.iter().filter(|&&b| b).count();
-        let b = other.used_chars.iter().filter(|&&b| b).count();
-        match Reverse(a).cmp(&Reverse(b)) {
-            core::cmp::Ordering::Equal => {}
-            ord => return ord,
+impl<'b> State<'b> {
+    fn get_child_states<'a>(&self, trie: &Trie) -> Vec<State<'b>> {
+        if self.path_len >= 5 {
+            return vec![];
         }
-
-        Reverse(self.path_len).cmp(&Reverse(other.path_len))
-    }
-}
-
-impl<'a> State<'a> {
-    fn evolve(&self, new_word: &'a str) -> State {
-        let mut new_state = self.clone();
-        for (i, &c) in self.board.letters.iter().enumerate() {
-            if new_word.contains(c) {
-                new_state.used_chars[i] = true;
+        let iter = match self.word.chars().last() {
+            Some(c) => trie.iter_from(&c.to_string()),
+            None => trie.iter(),
+        };
+        let start_char = self.word.chars().last();
+        let illegle = match start_char {
+            None => &self.board.letters[0..0],
+            Some(c) => {
+                let start_idx = self.board.get_idx(c) / 3;
+                &self.board.letters[start_idx..start_idx + 3]
             }
-        }
-        new_state.path[new_state.path_len as usize] = new_word;
-        new_state.path_len += 1;
-        let last_char = new_word.chars().last().unwrap();
-        new_state.current = Location::C(
-            self.board
-                .letters
-                .iter()
-                .position(|&c| c == last_char)
-                .unwrap(),
-        );
-        new_state
+        };
+        iter.filter(|w| !illegle.contains(&w.chars().next().unwrap()))
+            .map(|word| {
+                let mut new_used = self.used_chars.clone();
+                for c in word.chars() {
+                    new_used[self.board.get_idx(c)] = true;
+                }
+                let end_idx = self.board.get_idx(word.chars().last().unwrap());
+                State {
+                    board: self.board,
+                    word,
+                    used_chars: new_used,
+                    location: Location::Idx(end_idx),
+                    path_len: self.path_len + 1,
+                }
+            })
+            .collect()
+    }
+
+    fn calculate_score(&self) -> usize {
+        self.path_len * self.used_chars.iter().filter(|&&b| b).count()
+    }
+
+    fn is_goal(&self) -> bool {
+        self.used_chars.iter().all(|&f| f)
     }
 }
 
 pub fn solve(board: &Board, trie: &Trie) -> Vec<String> {
-    let start: State = State {
-        path: [""; 5],
-        path_len: 0,
-        current: Location::Root,
-        used_chars: [false; 12],
+    let start = State {
         board,
+        word: "".into(),
+        path_len: 0,
+        used_chars: [false; 12],
+        location: Location::Root,
     };
-    //TODO: use a heap and construct states using a length-first-iterator from trie.
+    let mut parent = IndexMap::new();
+    let mut queue = BinaryHeap::new();
+    let score = start.calculate_score();
+    let (idx, _) = parent.insert_full(start, 0);
+    queue.push((score, idx));
+
+    while !queue.is_empty() {
+        let (_, parent_idx) = queue.pop().unwrap();
+        let (parent_state, _) = parent.get_index(parent_idx).unwrap();
+        for child in parent_state.get_child_states(trie) {
+            let new_score = child.calculate_score();
+            if child.is_goal() {
+                let (new_idx, _) = parent.insert_full(child, parent_idx);
+                return extract_path(parent, new_idx);
+            }
+            let (new_idx, _) = parent.insert_full(child, parent_idx);
+            queue.push((new_score, new_idx));
+        }
+    }
+
     vec![]
+}
+
+fn extract_path(parent: IndexMap<State, usize>, new_idx: usize) -> Vec<String> {
+    let (mut current_state, mut next_state) = parent.get_index(new_idx).unwrap();
+    let mut path = vec![];
+    while *next_state != 0 {
+        path.push(current_state.word.clone());
+        (current_state, next_state) = parent.get_index(*next_state).unwrap();
+    }
+    path.reverse();
+    path
 }
 
 #[cfg(test)]
@@ -163,4 +206,5 @@ mod test {
         assert!(std::panic::catch_unwind(|| Board::from("abcdefghijk".chars())).is_err());
         assert!(std::panic::catch_unwind(|| Board::from("abcdefghijklm".chars())).is_err());
     }
+    // TODO: test extract_path and solve
 }
