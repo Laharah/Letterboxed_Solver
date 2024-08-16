@@ -1,29 +1,30 @@
 use std::io::BufRead;
 mod game;
 mod trie;
-use game::Board;
+use game::{solve, Board};
+use std::fs::File;
+use std::io::BufReader;
+use trie::Trie;
 
 fn main() {
-    ()
-    // let b = Board::from("abcdefghijkl".chars());
-    // b.show_board();
-    // let letters = b.letters.iter().flat_map(|r| r.iter()).collect::<Vec<_>>();
-    // let f = std::fs::File::open("/usr/share/dict/american-english").unwrap();
-    // let f = std::io::BufReader::new(f);
-    // let filtered = f
-    //     .lines()
-    //     .map(|l| l.unwrap())
-    //     .filter(|l| {
-    //         if l.len() < 3 || l.ends_with("'s") {
-    //             return false;
-    //         }
-    //         if l.chars().any(|c| !letters.contains(&&c)) {
-    //             return false;
-    //         }
-    //         true
-    //     })
-    //     .map(|l| l.trim().to_lowercase());
-    //
-    // // let t = Trie::new(filtered);
-    // // println!("{}", t.len());
+    // TODO: Get board letters from stdin
+    let board = Board::from("omturifahgpl".chars());
+    let f = File::open("/home/jaredanderson/Downloads/2of12.txt").unwrap();
+    let f = BufReader::new(f);
+
+    let words = f.lines().filter_map(|l| {
+        let w = match l {
+            Ok(w) => w,
+            _ => return None,
+        };
+        if w.len() < 3 || w.ends_with("'s") {
+            None
+        } else {
+            Some(w.trim().to_lowercase())
+        }
+    });
+    let t = Trie::new_with_board(words, &board);
+
+    let answer = solve(&board, &t);
+    println!("{:?}", answer);
 }

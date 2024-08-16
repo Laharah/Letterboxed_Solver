@@ -1,9 +1,6 @@
 use crate::trie::Trie;
-use core::cmp::Reverse;
 use indexmap::IndexMap;
 use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::VecDeque;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub struct Board {
@@ -103,7 +100,7 @@ struct State<'b> {
 }
 
 impl<'b> State<'b> {
-    fn get_child_states<'a>(&self, trie: &Trie) -> Vec<State<'b>> {
+    fn get_child_states(&self, trie: &Trie) -> Vec<State<'b>> {
         if self.path_len >= 5 {
             return vec![];
         }
@@ -121,7 +118,7 @@ impl<'b> State<'b> {
         };
         iter.filter(|w| !illegle.contains(&w.chars().next().unwrap()))
             .map(|word| {
-                let mut new_used = self.used_chars.clone();
+                let mut new_used = self.used_chars;
                 for c in word.chars() {
                     new_used[self.board.get_idx(c)] = true;
                 }
@@ -184,6 +181,7 @@ fn extract_path(parent: IndexMap<State, usize>, new_idx: usize) -> Vec<String> {
         path.push(current_state.word.clone());
         (current_state, next_state) = parent.get_index(*next_state).unwrap();
     }
+    path.push(current_state.word.clone());
     path.reverse();
     path
 }

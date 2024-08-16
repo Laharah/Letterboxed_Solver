@@ -61,7 +61,7 @@ impl Trie {
             items: 0,
         };
         let legal_word = |word: &I| -> bool {
-            let prev_char = None;
+            let mut prev_char = None;
             for c in word.as_ref().chars() {
                 if !board.letters.contains(&c) {
                     return false;
@@ -70,6 +70,7 @@ impl Trie {
                     Some(p) if board.get_idx(p) / 3 == board.get_idx(c) / 3 => return false,
                     _ => (),
                 };
+                prev_char = Some(c);
             }
             true
         };
@@ -352,7 +353,7 @@ mod test {
 
     #[test]
     fn iter_from_test() {
-        let mut t = Trie::new(["apple", "app", "apricot", "banana", "band", "bandana"]);
+        let t = Trie::new(["apple", "app", "apricot", "banana", "band", "bandana"]);
         let mut iter = t.iter_from("app");
 
         assert_eq!(iter.next().unwrap(), "apple");
