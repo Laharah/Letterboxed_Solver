@@ -1,3 +1,4 @@
+use std::env;
 use std::io::BufRead;
 mod game;
 mod trie;
@@ -7,8 +8,15 @@ use std::io::BufReader;
 use trie::Trie;
 
 fn main() {
-    // TODO: Get board letters from stdin
-    let board = Board::from("omturifahgpl".chars());
+    // Get board letters from command-line arguments
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} <board_letters>", args[0]);
+        std::process::exit(1);
+    }
+    let board_letters = &args[1];
+
+    let board = Board::from(board_letters.chars());
     let f = File::open("/home/jaredanderson/Downloads/2of12.txt").unwrap();
     let f = BufReader::new(f);
 
