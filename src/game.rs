@@ -1,3 +1,4 @@
+use crate::non_nan::OrderedF32;
 use crate::trie::Trie;
 use indexmap::IndexMap;
 use std::collections::BinaryHeap;
@@ -134,8 +135,14 @@ impl<'b> State<'b> {
             .collect()
     }
 
-    fn calculate_score(&self) -> usize {
-        self.path_len * self.used_chars.iter().filter(|&&b| b).count()
+    fn calculate_score(&self) -> OrderedF32 {
+        // The reasoning behind this heuristic is to prioritize paths that use more characters
+        // while also considering the length of the path. By dividing by `self.path_len + 1`,
+        // it ensures that shorter paths are favored, balancing between path length
+        // and character usage.
+
+        OrderedF32::from(self.used_chars.iter().filter(|&&b| b).count())
+            / (OrderedF32::from(self.path_len) + 1.0.into())
     }
 
     fn is_goal(&self) -> bool {

@@ -1,9 +1,11 @@
-use std::env;
-use std::io::BufRead;
 mod game;
+mod non_nan;
 mod trie;
+
 use game::{solve, Board};
+use std::env;
 use std::fs::File;
+use std::io::BufRead;
 use std::io::BufReader;
 use trie::Trie;
 
@@ -32,6 +34,10 @@ fn main() {
         }
     });
     let t = Trie::new_with_board(words, &board);
+    println!(
+        "There are {} words that can be made with this board.",
+        t.len()
+    );
 
     let answer = solve(&board, &t);
     println!("{:?}", answer);

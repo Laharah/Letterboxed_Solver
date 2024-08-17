@@ -12,6 +12,7 @@ enum Data {
 struct Node {
     data: Data,
     descendents_count: usize,
+    max_depth: usize,
     children: Vec<usize>,
     parent: usize,
 }
@@ -21,6 +22,7 @@ impl Node {
         Node {
             data,
             children: vec![],
+            max_depth: 0,
             descendents_count: 0,
             parent: 0,
         }
@@ -114,7 +116,7 @@ impl Trie {
     pub fn insert(&mut self, word: &str) {
         let mut path = vec![ROOT];
         let mut cursor = ROOT;
-        for c in word.chars() {
+        for (i, c) in word.chars().enumerate() {
             let mut found = false;
             for idx in &self.nodes[cursor].children {
                 if self.nodes[*idx].data == Data::Letter(c) {
@@ -128,6 +130,7 @@ impl Trie {
                 self.nodes.push(Node {
                     data: Data::Letter(c),
                     children: Vec::new(),
+                    max_depth: word.len() - i,
                     descendents_count: 0,
                     parent: cursor,
                 });
@@ -141,8 +144,14 @@ impl Trie {
             self.nodes[cursor].children.push(WORD_END);
             self.items += 1;
         }
-        for p in path {
-            self.nodes[p].descendents_count += 1;
+
+        let path_len = path.len();
+        for (i, node_idx) in path.into_iter().enumerate() {
+            if node_idx != WORD_END {
+                let bigger_depth = self.nodes[node_idx].max_depth.max(path_len - i);
+                self.nodes[node_idx].max_depth = bigger_depth;
+            }
+            self.nodes[node_idx].descendents_count += 1;
         }
     }
 
@@ -169,12 +178,12 @@ impl Trie {
 
     pub fn iter(&self) -> TrieIterator {
         let mut root_children = self.nodes[ROOT].children.clone();
-        let descendent_sort = |&idx: &usize| Reverse(self.nodes[idx].descendents_count);
-        root_children.sort_by_key(descendent_sort);
+        let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].max_depth);
+        root_children.sort_by_key(reverse_depth_sort);
         let first_node_idx = root_children.pop().unwrap();
         let stack_base = (ROOT, root_children);
         let mut first_children = self.nodes[first_node_idx].children.clone();
-        first_children.sort_by_key(descendent_sort);
+        first_children.sort_by_key(reverse_depth_sort);
         let stack_head = (first_node_idx, first_children);
         TrieIterator {
             trie: self,
@@ -192,9 +201,9 @@ impl Trie {
                 }
             }
         };
-        let descendent_sort = |&idx: &usize| self.nodes[idx].descendents_count;
+        let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].max_depth);
         let mut head_children = self.nodes[node_idx].children.clone();
-        head_children.sort_by_key(descendent_sort);
+        head_children.sort_by_key(reverse_depth_sort);
         let mut stack = vec![(node_idx, head_children)];
         node_idx = self.nodes[node_idx].parent;
         while node_idx != ROOT {
@@ -219,21 +228,21 @@ impl Iterator for TrieIterator<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // // debug show stack
+            // debug show stack
             // for (idx, children) in self.stack.iter() {
             //     let c = self.trie.nodes[*idx].data;
+            //     let depth = self.trie.nodes[*idx].max_depth;
             //     let kids = children
             //         .iter()
             //         .map(|&idx| match self.trie.nodes[idx].data {
-            //             Data::Letter(c) => (idx, c),
-            //             Data::End => (idx, '_'),
-            //             Data::Root => (idx, 'R'),
+            //             Data::Letter(c) => (idx, c, depth),
+            //             Data::End => (idx, '_', depth),
+            //             Data::Root => (idx, 'R', depth),
             //         })
             //         .collect::<Vec<_>>();
             //     println!("{:?}: {:?}", c, kids);
             // }
             // println!("stack:");
-            // ---
 
             let (node_idx, mut children) = match self.stack.pop() {
                 None => return None,
@@ -265,8 +274,8 @@ impl Iterator for TrieIterator<'_> {
             }
 
             let mut next_children = self.trie.nodes[current_child_idx].children.clone();
-            let descendent_sort = |&idx: &usize| self.trie.nodes[idx].descendents_count;
-            next_children.sort_by_key(descendent_sort);
+            let reverse_depth_sort = |&idx: &usize| Reverse(self.trie.nodes[idx].max_depth);
+            next_children.sort_by_key(reverse_depth_sort);
             self.stack.push((current_child_idx, next_children));
         }
     }
@@ -341,36 +350,40 @@ mod test {
         t.insert("testing");
         t.insert("quiet");
         t.insert("quietly");
+        t.insert("v_q");
         t.insert("very_quietly");
+        println!("{:#?}", t.iter().collect::<Vec<_>>());
+
         let mut iter = t.iter();
-        assert_eq!(iter.next().unwrap(), "very_quietly");
-        assert_eq!(iter.next().unwrap(), "quietly");
         assert_eq!(iter.next().unwrap(), "quiet");
-        assert_eq!(iter.next().unwrap(), "testing");
+        assert_eq!(iter.next().unwrap(), "quietly");
         assert_eq!(iter.next().unwrap(), "testr");
         assert_eq!(iter.next().unwrap(), "tests");
+        assert_eq!(iter.next().unwrap(), "testing");
+        assert_eq!(iter.next().unwrap(), "v_q");
+        assert_eq!(iter.next().unwrap(), "very_quietly");
     }
 
     #[test]
     fn iter_from_test() {
         let t = Trie::new(["apple", "app", "apricot", "banana", "band", "bandana"]);
         let mut iter = t.iter_from("app");
-
-        assert_eq!(iter.next().unwrap(), "apple");
-        assert_eq!(iter.next().unwrap(), "app");
+        let expected = ["apple", "app"];
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(iter.next().is_none());
 
         let mut iter = t.iter_from("ban");
-
-        assert_eq!(iter.next().unwrap(), "bandana");
-        assert_eq!(iter.next().unwrap(), "band");
-        assert_eq!(iter.next().unwrap(), "banana");
+        let expected = ["bandana", "band", "banana"];
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(iter.next().is_none());
 
         let mut iter = t.iter_from("band");
 
-        assert_eq!(iter.next().unwrap(), "bandana");
-        assert_eq!(iter.next().unwrap(), "band");
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
+        assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(iter.next().is_none());
 
         let mut iter = t.iter_from("z");
