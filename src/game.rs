@@ -136,13 +136,14 @@ impl<'b> State<'b> {
     }
 
     fn calculate_score(&self) -> OrderedF32 {
-        // The reasoning behind this heuristic is to prioritize paths that use more characters
-        // while also considering the length of the path. By dividing by `self.path_len + 1`,
-        // it ensures that shorter paths are favored, balancing between path length
-        // and character usage.
+        // The reasoning behind this heuristic is to prioritize paths that consume more characters.
+        // By dividing by `self.path_len` and `word.len()`, it ensures that shorter paths are
+        // favored, balancing between path length and character consumption.(The +1 in the
+        // denominator is to avoid division by zero)
 
-        OrderedF32::from(self.used_chars.iter().filter(|&&b| b).count())
-            / (OrderedF32::from(self.path_len) + 1.0.into())
+        let f = (self.used_chars.iter().filter(|&&b| b).count() as f32)
+            / (self.path_len + 1 + self.word.len()) as f32;
+        OrderedF32(f)
     }
 
     fn is_goal(&self) -> bool {
