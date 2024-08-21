@@ -11,8 +11,8 @@ enum Data {
 #[derive(Debug)]
 struct Node {
     data: Data,
-    descendents_count: usize,
-    max_depth: usize,
+    descendants_count: usize,
+    min_depth: usize,
     children: Vec<usize>,
     parent: usize,
 }
@@ -22,14 +22,14 @@ impl Node {
         Node {
             data,
             children: vec![],
-            max_depth: 0,
-            descendents_count: 0,
+            min_depth: 0,
+            descendants_count: 0,
             parent: 0,
         }
     }
 }
 
-/// Trie data structure, root is always at 0, "endword" node is at 1
+/// Trie data structure. Root is always at 0, "end word" node is always at 1
 const ROOT: usize = 0;
 const WORD_END: usize = 1;
 #[derive(Debug)]
@@ -37,20 +37,21 @@ pub struct Trie {
     nodes: Vec<Node>,
     items: usize,
 }
+
 impl Trie {
     pub fn new<T, I>(word_list: T) -> Self
     where
         T: IntoIterator<Item = I>,
         I: AsRef<str>,
     {
-        let mut t = Trie {
+        let mut trie = Trie {
             nodes: vec![Node::new(Data::Root), Node::new(Data::End)],
             items: 0,
         };
         for word in word_list {
-            t.insert(word.as_ref());
+            trie.insert(word.as_ref());
         }
-        t
+        trie
     }
 
     pub fn new_with_board<T, I>(word_list: T, board: &Board) -> Self
@@ -58,30 +59,16 @@ impl Trie {
         T: IntoIterator<Item = I>,
         I: AsRef<str>,
     {
-        let mut t = Trie {
+        let mut trie = Trie {
             nodes: vec![Node::new(Data::Root), Node::new(Data::End)],
             items: 0,
         };
-        let legal_word = |word: &I| -> bool {
-            let mut prev_char = None;
-            for c in word.as_ref().chars() {
-                if !board.letters.contains(&c) {
-                    return false;
-                }
-                match prev_char {
-                    Some(p) if board.get_idx(p) / 3 == board.get_idx(c) / 3 => return false,
-                    _ => (),
-                };
-                prev_char = Some(c);
-            }
-            true
-        };
-        for w in word_list {
-            if legal_word(&w) {
-                t.insert(w.as_ref())
+        for word in word_list {
+            if legal_word(&word, board) {
+                trie.insert(word.as_ref())
             }
         }
-        t
+        trie
     }
 
     pub fn len(&self) -> usize {
@@ -89,69 +76,85 @@ impl Trie {
     }
 
     pub fn contains(&self, word: &str) -> bool {
-        let mut cursor = ROOT;
-        for c in word.chars() {
-            let mut found = false;
-            for &idx in &self.nodes[cursor].children {
-                match self.nodes[idx].data {
-                    Data::Letter(l) if l == c => {
-                        cursor = idx;
-                        found = true;
+        let mut current_node_index = ROOT;
+
+        // Iterate over each character in the word
+        for character in word.chars() {
+            let mut character_found = false;
+
+            // Check each child of the current node
+            for &child_index in &self.nodes[current_node_index].children {
+                match self.nodes[child_index].data {
+                    // If the child node contains the character, move to that node
+                    Data::Letter(letter) if letter == character => {
+                        current_node_index = child_index;
+                        character_found = true;
                         break;
                     }
                     _ => {}
                 }
             }
-            if !found {
+
+            // If the character was not found among the children, the word is not in the trie
+            if !character_found {
                 return false;
             }
         }
-        if self.nodes[cursor].children.contains(&WORD_END) {
-            return true;
-        }
 
-        false
+        // Check if the current node has a WORD_END child, indicating the end of a valid word
+        self.nodes[current_node_index].children.contains(&WORD_END)
     }
 
     pub fn insert(&mut self, word: &str) {
         let mut path = vec![ROOT];
-        let mut cursor = ROOT;
-        for (i, c) in word.chars().enumerate() {
-            let mut found = false;
-            for idx in &self.nodes[cursor].children {
-                if self.nodes[*idx].data == Data::Letter(c) {
-                    cursor = *idx;
-                    path.push(cursor);
-                    found = true;
+        let mut current_node_index = ROOT;
+
+        // Iterate over each character in the word
+        for (char_index, character) in word.chars().enumerate() {
+            let mut character_found = false;
+
+            // Check each child of the current node
+            for &child_index in &self.nodes[current_node_index].children {
+                if self.nodes[child_index].data == Data::Letter(character) {
+                    current_node_index = child_index;
+                    path.push(current_node_index);
+                    character_found = true;
                     break;
                 }
             }
-            if !found {
+
+            // If the character was not found among the children, create a new node
+            if !character_found {
                 self.nodes.push(Node {
-                    data: Data::Letter(c),
+                    data: Data::Letter(character),
                     children: Vec::new(),
-                    max_depth: word.len() - i,
-                    descendents_count: 0,
-                    parent: cursor,
+                    min_depth: word.len() - char_index,
+                    descendants_count: 0,
+                    parent: current_node_index,
                 });
-                let idx = self.nodes.len() - 1;
-                self.nodes[cursor].children.push(idx);
-                cursor = idx;
-                path.push(cursor);
+                let new_node_index = self.nodes.len() - 1;
+                self.nodes[current_node_index].children.push(new_node_index);
+                current_node_index = new_node_index;
+                path.push(current_node_index);
             }
         }
-        if !self.nodes[cursor].children.contains(&WORD_END) {
-            self.nodes[cursor].children.push(WORD_END);
+
+        // Add WORD_END marker if it doesn't already exist
+        if !self.nodes[current_node_index].children.contains(&WORD_END) {
+            self.nodes[current_node_index].children.push(WORD_END);
             self.items += 1;
         }
 
+        // Update min_depth and descendants_count for each node in the path
         let path_len = path.len();
-        for (i, node_idx) in path.into_iter().enumerate() {
-            if node_idx != WORD_END {
-                let bigger_depth = self.nodes[node_idx].max_depth.max(path_len - i);
-                self.nodes[node_idx].max_depth = bigger_depth;
+        for (current_depth, node_index) in path.into_iter().enumerate() {
+            if node_index != WORD_END {
+                let updated_depth = self.nodes[node_index]
+                    .min_depth
+                    .min(path_len - current_depth);
+                self.nodes[node_index].min_depth = updated_depth;
             }
-            self.nodes[node_idx].descendents_count += 1;
+            self.nodes[node_index].descendants_count += 1;
         }
     }
 
@@ -178,7 +181,8 @@ impl Trie {
 
     pub fn iter(&self) -> TrieIterator {
         let mut root_children = self.nodes[ROOT].children.clone();
-        let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].max_depth);
+        //sort by
+        let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].min_depth);
         root_children.sort_by_key(reverse_depth_sort);
         let first_node_idx = root_children.pop().unwrap();
         let stack_base = (ROOT, root_children);
@@ -201,7 +205,7 @@ impl Trie {
                 }
             }
         };
-        let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].max_depth);
+        let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].min_depth);
         let mut head_children = self.nodes[node_idx].children.clone();
         head_children.sort_by_key(reverse_depth_sort);
         let mut stack = vec![(node_idx, head_children)];
@@ -216,6 +220,24 @@ impl Trie {
     }
 }
 
+fn legal_word<S>(word: S, board: &Board) -> bool
+where
+    S: AsRef<str>,
+{
+    let mut prev_char = None;
+    for c in word.as_ref().chars() {
+        if !board.letters.contains(&c) {
+            return false;
+        }
+        match prev_char {
+            Some(p) if board.get_idx(p) / 3 == board.get_idx(c) / 3 => return false,
+            _ => (),
+        };
+        prev_char = Some(c);
+    }
+    true
+}
+
 #[derive(Debug)]
 pub struct TrieIterator<'a> {
     trie: &'a Trie,
@@ -228,21 +250,21 @@ impl Iterator for TrieIterator<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // debug show stack
+            // // debug show stack
+            // println!("\nstack:");
             // for (idx, children) in self.stack.iter() {
             //     let c = self.trie.nodes[*idx].data;
-            //     let depth = self.trie.nodes[*idx].max_depth;
+            //     let depth = self.trie.nodes[*idx].min_depth;
             //     let kids = children
             //         .iter()
             //         .map(|&idx| match self.trie.nodes[idx].data {
-            //             Data::Letter(c) => (idx, c, depth),
-            //             Data::End => (idx, '_', depth),
-            //             Data::Root => (idx, 'R', depth),
+            //             Data::Letter(c) => (idx, c, format!("Depth: {}", depth)),
+            //             Data::End => (idx, '_', format!("Depth: {}", depth)),
+            //             Data::Root => (idx, 'R', format!("Depth: {}", depth)),
             //         })
             //         .collect::<Vec<_>>();
             //     println!("{:?}: {:?}", c, kids);
             // }
-            // println!("stack:");
 
             let (node_idx, mut children) = match self.stack.pop() {
                 None => return None,
@@ -274,7 +296,7 @@ impl Iterator for TrieIterator<'_> {
             }
 
             let mut next_children = self.trie.nodes[current_child_idx].children.clone();
-            let reverse_depth_sort = |&idx: &usize| Reverse(self.trie.nodes[idx].max_depth);
+            let reverse_depth_sort = |&idx: &usize| Reverse(self.trie.nodes[idx].min_depth);
             next_children.sort_by_key(reverse_depth_sort);
             self.stack.push((current_child_idx, next_children));
         }
@@ -335,33 +357,33 @@ mod test {
 
         let get_descendents_from_prefix = |prefix: &str| {
             let node = t.get_node_from_prefix(prefix).unwrap();
-            t.nodes[node].descendents_count
+            t.nodes[node].descendants_count
         };
 
-        assert_eq!(t.nodes[ROOT].descendents_count, 3);
+        assert_eq!(t.nodes[ROOT].descendants_count, 3);
         assert_eq!(get_descendents_from_prefix("tes"), 2);
         assert_eq!(get_descendents_from_prefix("testi"), 1);
         assert_eq!(get_descendents_from_prefix("qui"), 1);
     }
     #[test]
-    fn greatest_first_iterator() {
+    fn shortest_word_first_iterator() {
         let mut t = Trie::new(["tests"]);
         t.insert("testr"); // Sort should be stable, **NOT A GUARANTEE**
         t.insert("testing");
         t.insert("quiet");
         t.insert("quietly");
-        t.insert("v_q");
+        t.insert("v.q");
         t.insert("very_quietly");
         println!("{:#?}", t.iter().collect::<Vec<_>>());
 
         let mut iter = t.iter();
+        assert_eq!(iter.next().unwrap(), "v.q");
+        assert_eq!(iter.next().unwrap(), "very_quietly");
         assert_eq!(iter.next().unwrap(), "quiet");
         assert_eq!(iter.next().unwrap(), "quietly");
         assert_eq!(iter.next().unwrap(), "testr");
         assert_eq!(iter.next().unwrap(), "tests");
         assert_eq!(iter.next().unwrap(), "testing");
-        assert_eq!(iter.next().unwrap(), "v_q");
-        assert_eq!(iter.next().unwrap(), "very_quietly");
     }
 
     #[test]
