@@ -4,9 +4,6 @@ mod trie;
 
 use game::{solve, Board};
 use std::env;
-use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
 use trie::Trie;
 
 fn main() {
@@ -19,26 +16,22 @@ fn main() {
     let board_letters = &args[1];
 
     let board = Board::from(board_letters.chars());
-    let f = File::open("/home/jaredanderson/Downloads/2of12.txt").unwrap();
-    let f = BufReader::new(f);
+    let file = include_str!("2of12.txt");
 
-    let words = f.lines().filter_map(|l| {
-        let w = match l {
-            Ok(w) => w,
-            _ => return None,
-        };
-        if w.len() < 3 || w.ends_with("'s") {
+    let words = file.lines().filter_map(|l| {
+        if l.len() < 3 || l.ends_with("'s") {
             None
         } else {
-            Some(w.trim().to_lowercase())
+            Some(l.trim().to_lowercase())
         }
     });
-    let t = Trie::new_with_board(words, &board);
+
+    let trie = Trie::new_with_board(words, &board);
     println!(
         "There are {} words that can be made with this board.",
-        t.len()
+        trie.len()
     );
 
-    let answer = solve(&board, &t);
+    let answer = solve(&board, &trie);
     println!("{:?}", answer);
 }
