@@ -35,6 +35,9 @@ fn main() {
         trie.len()
     );
 
-    let answer = solve(&board, &trie);
+    let answer = solve(&board, &trie)
+        .into_iter()
+        .map(|s| s.to_ascii_uppercase())
+        .collect::<Vec<_>>();
     println!("{:?}", answer);
 }

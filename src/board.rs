@@ -1,3 +1,5 @@
+use std::ascii::AsciiExt;
+
 /// Struct to represent the letterboxed board
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub struct Board {
@@ -9,7 +11,7 @@ impl Board {
     pub fn show(&self) {
         print!("  ");
         for c in self.letters[..3].iter() {
-            print!("  {} ", c);
+            print!("  {} ", c.to_ascii_uppercase());
         }
         print!(" ");
         let gap_len = 11;
@@ -25,9 +27,9 @@ impl Board {
         for i in 0usize..3 {
             println!(
                 " {}├{}┤{} ",
-                self.letters[9..][i],
+                self.letters[9..][i].to_ascii_uppercase(),
                 gap,
-                self.letters[3..6][i]
+                self.letters[3..6][i].to_ascii_uppercase()
             );
             if i != 2 {
                 println!("  │{}│  ", gap);
@@ -43,7 +45,7 @@ impl Board {
         }
         print!("   ");
         for c in self.letters[6..9].iter() {
-            print!(" {}  ", c);
+            print!(" {}  ", c.to_ascii_uppercase());
         }
         print!("\n\n");
     }
