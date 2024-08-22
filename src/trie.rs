@@ -1,4 +1,4 @@
-use crate::game::Board;
+use crate::board::Board;
 use std::cmp::Reverse;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

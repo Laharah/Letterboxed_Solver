@@ -1,8 +1,10 @@
-mod game;
+mod board;
 mod non_nan;
+mod solver;
 mod trie;
 
-use game::{solve, Board};
+use board::Board;
+use solver::solve;
 use std::env;
 use trie::Trie;
 
