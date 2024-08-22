@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::board::{Board, SIDE_LEN};
 use std::cmp::Reverse;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,7 +231,7 @@ where
             return false;
         }
         match prev_char {
-            Some(p) if board.get_idx(p) / 3 == board.get_idx(c) / 3 => return false,
+            Some(p) if board.get_idx(p) / SIDE_LEN == board.get_idx(c) / SIDE_LEN => return false,
             _ => (),
         };
         prev_char = Some(c);

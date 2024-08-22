@@ -1,8 +1,10 @@
-use crate::board::Board;
+use crate::board::{Board, BOARD_LEN, SIDE_LEN};
 use crate::non_nan::OrderedF32; // solve requires f32's to be orderable'
 use crate::trie::Trie;
 use indexmap::IndexMap;
 use std::collections::BinaryHeap;
+
+const MAX_WORD_COUNT: usize = 5;
 
 /// the location on the board that the current state is located.
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
@@ -17,13 +19,13 @@ struct State<'b> {
     board: &'b Board,
     word: String,
     path_len: usize,
-    used_chars: [bool; 12],
+    used_chars: [bool; BOARD_LEN],
     location: Location,
 }
 
 impl<'b> State<'b> {
     fn get_child_states(&self, trie: &Trie) -> Vec<State<'b>> {
-        if self.path_len >= 5 {
+        if self.path_len >= MAX_WORD_COUNT {
             return vec![];
         }
         let iter = match self.word.chars().last() {
@@ -38,8 +40,8 @@ impl<'b> State<'b> {
         let illegal = match start_char {
             None => &self.board.letters[0..0],
             Some(c) => {
-                let start_idx = self.board.get_idx(c) / 3;
-                &self.board.letters[start_idx..start_idx + 3]
+                let start_idx = self.board.get_idx(c) / SIDE_LEN;
+                &self.board.letters[start_idx..start_idx + SIDE_LEN]
             }
         };
 
@@ -85,7 +87,7 @@ pub fn solve(board: &Board, trie: &Trie) -> Vec<String> {
         board,
         word: "".into(),
         path_len: 0,
-        used_chars: [false; 12],
+        used_chars: [false; BOARD_LEN],
         location: Location::Root,
     };
     let mut parent = IndexMap::new();
@@ -127,28 +129,6 @@ fn extract_path(parent: IndexMap<State, usize>, new_idx: usize) -> Vec<String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    #[test]
-    fn construct_board() {
-        let b = Board::from("abcdefghi jkl ".chars());
-        assert_eq!(
-            b,
-            Board {
-                letters: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l']
-            }
-        );
-        let b = Board::from(vec!['a'; 12]);
-        assert_eq!(b, Board { letters: ['a'; 12] });
-    }
-
-    #[test]
-    fn board_construction_failure() {
-        assert!(std::panic::catch_unwind(|| Board::from("abcdefg".chars())).is_err());
-        assert!(std::panic::catch_unwind(|| Board::from("abcdefghi".chars())).is_err());
-        assert!(std::panic::catch_unwind(|| Board::from("abcdefghij".chars())).is_err());
-        assert!(std::panic::catch_unwind(|| Board::from("abcdefghijk".chars())).is_err());
-        assert!(std::panic::catch_unwind(|| Board::from("abcdefghijklm".chars())).is_err());
-    }
-
     #[test]
     fn solve_game() {
         let board = Board::from("vkspyielurao".chars());
