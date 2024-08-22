@@ -292,7 +292,7 @@ impl Iterator for TrieIterator<'_> {
                     }
                     to_del += 1;
                 }
-                self.stack.resize(self.stack.len() - to_del, (0, vec![]));
+                self.stack.truncate(self.stack.len() - to_del);
                 return Some(word);
             }
 
