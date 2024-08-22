@@ -16,6 +16,7 @@ fn main() {
     let board_letters = &args[1];
 
     let board = Board::from(board_letters.chars());
+    board.show();
     let file = include_str!("2of12.txt");
 
     let words = file.lines().filter_map(|l| {

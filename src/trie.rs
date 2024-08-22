@@ -12,7 +12,7 @@ enum Data {
 struct Node {
     data: Data,
     descendants_count: usize,
-    min_depth: usize,
+    min_depth: usize, // Shortest word that can be made from this node
     children: Vec<usize>,
     parent: usize,
 }
@@ -29,7 +29,7 @@ impl Node {
     }
 }
 
-/// Trie data structure. Root is always at 0, "end word" node is always at 1
+// Root is always at 0, "end word" node is always at 1
 const ROOT: usize = 0;
 const WORD_END: usize = 1;
 #[derive(Debug)]
@@ -106,7 +106,7 @@ impl Trie {
     }
 
     pub fn insert(&mut self, word: &str) {
-        let mut path = vec![ROOT];
+        let mut node_path = vec![ROOT];
         let mut current_node_index = ROOT;
 
         // Iterate over each character in the word
@@ -117,7 +117,7 @@ impl Trie {
             for &child_index in &self.nodes[current_node_index].children {
                 if self.nodes[child_index].data == Data::Letter(character) {
                     current_node_index = child_index;
-                    path.push(current_node_index);
+                    node_path.push(current_node_index);
                     character_found = true;
                     break;
                 }
@@ -135,7 +135,7 @@ impl Trie {
                 let new_node_index = self.nodes.len() - 1;
                 self.nodes[current_node_index].children.push(new_node_index);
                 current_node_index = new_node_index;
-                path.push(current_node_index);
+                node_path.push(current_node_index);
             }
         }
 
@@ -146,8 +146,8 @@ impl Trie {
         }
 
         // Update min_depth and descendants_count for each node in the path
-        let path_len = path.len();
-        for (current_depth, node_index) in path.into_iter().enumerate() {
+        let path_len = node_path.len();
+        for (current_depth, node_index) in node_path.into_iter().enumerate() {
             if node_index != WORD_END {
                 let updated_depth = self.nodes[node_index]
                     .min_depth
@@ -161,18 +161,18 @@ impl Trie {
     fn get_node_from_prefix(&self, prefix: &str) -> Option<usize> {
         let mut cursor = ROOT;
         for c in prefix.chars() {
-            let mut found = false;
+            let mut prefix_exists = false;
             for &idx in &self.nodes[cursor].children {
                 match self.nodes[idx].data {
                     Data::Letter(l) if l == c => {
                         cursor = idx;
-                        found = true;
+                        prefix_exists = true;
                         break;
                     }
                     _ => {}
                 }
             }
-            if !found {
+            if !prefix_exists {
                 return None;
             }
         }
@@ -185,17 +185,17 @@ impl Trie {
         let reverse_depth_sort = |&idx: &usize| Reverse(self.nodes[idx].min_depth);
         root_children.sort_by_key(reverse_depth_sort);
         let first_node_idx = root_children.pop().unwrap();
-        let stack_base = (ROOT, root_children);
+        let stack_root = (ROOT, root_children);
         let mut first_children = self.nodes[first_node_idx].children.clone();
         first_children.sort_by_key(reverse_depth_sort);
         let stack_head = (first_node_idx, first_children);
         TrieIterator {
             trie: self,
-            stack: vec![stack_base, stack_head],
+            stack: vec![stack_root, stack_head],
         }
     }
 
-    pub fn iter_from(&self, prefix: &str) -> TrieIterator {
+    pub fn iter_from_prefix(&self, prefix: &str) -> TrieIterator {
         let mut node_idx = match self.get_node_from_prefix(prefix) {
             Some(x) => x,
             None => {
@@ -220,6 +220,7 @@ impl Trie {
     }
 }
 
+/// Check if a word is legal on a board
 fn legal_word<S>(word: S, board: &Board) -> bool
 where
     S: AsRef<str>,
@@ -241,7 +242,7 @@ where
 #[derive(Debug)]
 pub struct TrieIterator<'a> {
     trie: &'a Trie,
-    // node_idx, vec of shildren
+    // node_idx, vec of children
     stack: Vec<(usize, Vec<usize>)>,
 }
 
@@ -389,26 +390,26 @@ mod test {
     #[test]
     fn iter_from_test() {
         let t = Trie::new(["apple", "app", "apricot", "banana", "band", "bandana"]);
-        let mut iter = t.iter_from("app");
+        let mut iter = t.iter_from_prefix("app");
         let expected = ["apple", "app"];
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(iter.next().is_none());
 
-        let mut iter = t.iter_from("ban");
+        let mut iter = t.iter_from_prefix("ban");
         let expected = ["bandana", "band", "banana"];
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(iter.next().is_none());
 
-        let mut iter = t.iter_from("band");
+        let mut iter = t.iter_from_prefix("band");
 
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(expected.contains(&iter.next().unwrap().as_str()));
         assert!(iter.next().is_none());
 
-        let mut iter = t.iter_from("z");
+        let mut iter = t.iter_from_prefix("z");
 
         assert!(iter.next().is_none());
     }
