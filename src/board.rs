@@ -49,6 +49,7 @@ impl Board {
     }
     /// get the index of a character in the board
     pub fn get_idx(&self, c: char) -> usize {
+        // we iterate because 12 items is fast enough compared to a hashmap.
         self.letters
             .iter()
             .enumerate()
