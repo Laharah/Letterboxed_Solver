@@ -13,18 +13,17 @@ You are restricted by the following rules:
 For Example: here is a sample board and a possible solution.
 
 ```text
-    A   B   C  
+    D   E   G  
   ┌─┬───┬───┬─┐
- L├           ┤D 
+ R├           ┤L 
   │           │  
- K├           ┤E 
+ W├           ┤U 
   │           │  
- J├           ┤F 
+ N├           ┤Y 
   └─┴───┴───┴─┘
-    I   H   G  
+    T   F   S  
 
-Solution:
-JIBE, ELF, FICHE, EKE, EGAD
+Possible solution: SENTRY, YES, SELF, FUNDS, SWUNG
 ```
 
 ## Purpose
