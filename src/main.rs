@@ -35,9 +35,18 @@ fn main() {
         trie.len()
     );
 
-    let answer = solve(&board, &trie)
-        .into_iter()
-        .map(|s| s.to_ascii_uppercase())
-        .collect::<Vec<_>>();
-    println!("{:?}", answer);
+    let answer = solve(&board, &trie);
+    let mut code = 0;
+    if let Some(solution) = answer {
+        let solution = solution
+            .into_iter()
+            .map(|s| s.to_uppercase())
+            .collect::<Vec<String>>()
+            .join(", ");
+        println!("Found solution: {}", solution);
+    } else {
+        println!("No solution found");
+        code = 1;
+    }
+    std::process::exit(code);
 }

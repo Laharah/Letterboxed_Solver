@@ -82,7 +82,7 @@ impl<'b> State<'b> {
 
 /// Solve the letterboxed game with a given board and word list using the A* search algorithm,
 /// prioritizing efficiency
-pub fn solve(board: &Board, trie: &Trie) -> Vec<String> {
+pub fn solve(board: &Board, trie: &Trie) -> Option<Vec<String>> {
     let start = State {
         board,
         word: "".into(),
@@ -103,14 +103,14 @@ pub fn solve(board: &Board, trie: &Trie) -> Vec<String> {
             let child_score = child_state.calculate_score();
             if child_state.is_goal() {
                 let (child_state_idx, _) = parent.insert_full(child_state, parent_state_idx);
-                return extract_path(parent, child_state_idx);
+                return Some(extract_path(parent, child_state_idx));
             }
             let (new_idx, _) = parent.insert_full(child_state, parent_state_idx);
             queue.push((child_score, new_idx));
         }
     }
 
-    vec![]
+    None
 }
 
 /// extract the full solution from a given game state
@@ -149,6 +149,6 @@ mod test {
         let trie = Trie::new_with_board(word_list, &board);
 
         let solution = solve(&board, &trie);
-        assert_eq!(solution, vec!["previously", "yak"]);
+        assert_eq!(solution, Some(vec!["previously".into(), "yak".into()]));
     }
 }
