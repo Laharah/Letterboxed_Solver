@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 
 indexmap = "2"
+clap = { version = "4.0", features = ["derive"] }
