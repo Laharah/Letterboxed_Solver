@@ -4,7 +4,7 @@ use crate::trie::Trie;
 use indexmap::IndexMap;
 use std::collections::BinaryHeap;
 
-const MAX_WORD_COUNT: usize = 5;
+const MAX_PATH_LEN: usize = 7;
 
 /// the location on the board that the current state is located.
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
@@ -19,25 +19,26 @@ struct State<'b> {
     board: &'b Board,
     word: String,
     path_len: usize,
-    used_chars: [bool; BOARD_LEN],
+    total_letters: usize,
+    used_chars_mask: [bool; BOARD_LEN],
     location: Location,
 }
 
 impl<'b> State<'b> {
     fn get_child_states(&self, trie: &Trie) -> Vec<State<'b>> {
-        if self.path_len >= MAX_WORD_COUNT {
+        if self.path_len >= MAX_PATH_LEN {
             return vec![];
         }
         let iter = match self.word.chars().last() {
             Some(c) => trie.iter_from_prefix(&c.to_string()),
             None => trie.iter(),
         };
-        let start_char = self.word.chars().last();
 
+        let required_starting_letter = self.word.chars().last();
         // check if the next word is a legal letterboxed word
         //  - Word starts with the last character of the current word
         //  - Word starts with a character that is not on the same side of the board as the last character
-        let illegal = match start_char {
+        let illegal = match required_starting_letter {
             None => &self.board.letters[0..0],
             Some(c) => {
                 let start_idx = self.board.get_idx(c) / SIDE_LEN;
@@ -47,16 +48,17 @@ impl<'b> State<'b> {
 
         iter.filter(|w| !illegal.contains(&w.chars().next().unwrap()))
             .map(|word| {
-                let mut new_used_character_count = self.used_chars;
+                let mut new_letter_mask = self.used_chars_mask;
                 for c in word.chars() {
-                    new_used_character_count[self.board.get_idx(c)] = true;
+                    new_letter_mask[self.board.get_idx(c)] = true;
                 }
-                let last_character_location = self.board.get_idx(word.chars().last().unwrap());
+                let final_letter_location = self.board.get_idx(word.chars().last().unwrap());
                 State {
                     board: self.board,
+                    total_letters: self.total_letters + word.chars().count(),
                     word,
-                    used_chars: new_used_character_count,
-                    location: Location::Idx(last_character_location),
+                    used_chars_mask: new_letter_mask,
+                    location: Location::Idx(final_letter_location),
                     path_len: self.path_len + 1,
                 }
             })
@@ -64,19 +66,17 @@ impl<'b> State<'b> {
     }
 
     fn calculate_score(&self) -> OrderedF32 {
-        // The reasoning behind this heuristic is to prioritize paths that consume more characters.
-        // By dividing by `self.path_len` and `word.len()`, it ensures that shorter paths are
-        // favored, balancing between path length and character consumption.(The +1 in the
+        // the score for a state is the rotio of used characters to total characters. +1 in the
         // denominator is to avoid division by zero)
 
-        let f = (self.used_chars.iter().filter(|&&b| b).count() as f32)
-            / (self.path_len + 1 + self.word.len()) as f32;
+        let f = (self.used_chars_mask.iter().filter(|&&b| b).count() as f32)
+            / (1 + self.total_letters) as f32;
         OrderedF32(f)
     }
 
     /// check if the current state is the target solution
     fn is_goal(&self) -> bool {
-        self.used_chars.iter().all(|&f| f)
+        self.used_chars_mask.iter().all(|&f| f)
     }
 }
 
@@ -87,7 +87,8 @@ pub fn solve(board: &Board, trie: &Trie) -> Option<Vec<String>> {
         board,
         word: "".into(),
         path_len: 0,
-        used_chars: [false; BOARD_LEN],
+        total_letters: 0,
+        used_chars_mask: [false; BOARD_LEN],
         location: Location::Root,
     };
     let mut parent = IndexMap::new();
