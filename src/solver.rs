@@ -4,7 +4,7 @@ use crate::trie::Trie;
 use indexmap::IndexMap;
 use std::collections::BinaryHeap;
 
-const MAX_PATH_LEN: usize = 7;
+const MAX_PATH_LEN: usize = 8;
 
 /// the location on the board that the current state is located.
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]

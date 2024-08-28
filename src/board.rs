@@ -28,7 +28,7 @@ impl Board {
         for i in 0usize..SIDE_LEN {
             println!(
                 " {}├{}┤{} ",
-                self.letters[SIDE_LEN * 3..][i].to_ascii_uppercase(),
+                self.letters[SIDE_LEN * 3..][2 - i].to_ascii_uppercase(),
                 gap,
                 self.letters[SIDE_LEN..SIDE_LEN * 2][i].to_ascii_uppercase()
             );
@@ -45,7 +45,7 @@ impl Board {
             }
         }
         print!("   ");
-        for c in self.letters[SIDE_LEN * 2..SIDE_LEN * 3].iter() {
+        for c in self.letters[SIDE_LEN * 2..SIDE_LEN * 3].iter().rev() {
             print!(" {}  ", c.to_ascii_uppercase());
         }
         print!("\n\n");
